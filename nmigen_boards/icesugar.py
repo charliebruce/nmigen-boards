@@ -1,17 +1,31 @@
 import os
 import subprocess
+import platform
 
 from nmigen.build import *
 from nmigen.vendor.lattice_ice40 import *
 from .resources import *
 
+if platform.system() == "Windows":
+    # Libraries required to identify removable drives
+    # Provided as part of pywin32
+    import win32api
+    import win32con
+    import win32file
 
 __all__ = ["ICESugarPlatform"]
 
 def _findDriveMountPoint():
-    # TODO: Support Windows, Linux
-    return "/Volumes/iCELink"
-
+    if platform.system() == "Darwin":
+        return "/Volumes/iCELink"
+    elif platform.system() == "Windows":
+        drives = [i for i in win32api.GetLogicalDriveStrings().split('\x00') if i]
+        rdrives = [d for d in drives if win32file.GetDriveType(d) == win32con.DRIVE_REMOVABLE]
+        icedrives = [d for d in rdrives if win32api.GetVolumeInformation(d)[0] == "iCELink"]
+        assert len(icedrives) > 0, "Unable to identify an iCELink - is board connected via the USB C programming connector?"
+        assert len(icedrives) < 2, "More than one iCELink connected - remove extras and try again"
+        return icedrives[0]
+    raise NotImplementedError("Support for this platform not yet added")
 
 class ICESugarPlatform(LatticeICE40Platform):
     device      = "iCE40UP5K"
