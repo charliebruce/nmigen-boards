@@ -13,19 +13,28 @@ if platform.system() == "Windows":
     import win32con
     import win32file
 
+if platform.system() == "Linux":
+    # Library required to identify and find the mount point of removable drives
+    # Provided as part of blkinfo
+    import blkinfo
+
 __all__ = ["ICESugarPlatform"]
 
 def _findDriveMountPoint():
     if platform.system() == "Darwin":
-        return "/Volumes/iCELink"
+        icedrives = ["/Volumes/iCELink"]
     elif platform.system() == "Windows":
         drives = [i for i in win32api.GetLogicalDriveStrings().split('\x00') if i]
         rdrives = [d for d in drives if win32file.GetDriveType(d) == win32con.DRIVE_REMOVABLE]
         icedrives = [d for d in rdrives if win32api.GetVolumeInformation(d)[0] == "iCELink"]
-        assert len(icedrives) > 0, "Unable to identify an iCELink - is board connected via the USB C programming connector?"
-        assert len(icedrives) < 2, "More than one iCELink connected - remove extras and try again"
-        return icedrives[0]
-    raise NotImplementedError("Support for this platform not yet added")
+    elif platform.system() == "Linux":
+        icedrives  = [x['mountpoint'] for x in blkinfo.BlkDiskInfo().get_disks() if x['label'] == "iCELink" and x['model'] == "MBED VFS"]
+    else:
+        raise NotImplementedError("Support for programming on this platform not yet added")
+
+    assert len(icedrives) > 0, "Unable to identify an iCELink - is board connected via the USB C programming connector?"
+    assert len(icedrives) < 2, "More than one iCELink connected - remove extras and try again"
+    return icedrives[0]
 
 class ICESugarPlatform(LatticeICE40Platform):
     device      = "iCE40UP5K"
